@@ -1,440 +1,457 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>우리 동네 생활시설 지도</title>
-    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=41cb6164e3418fb3064c2418a4167d4a"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont,
-                         'Malgun Gothic', '맑은 고딕', sans-serif;
-            background: #f5f5f5;
-        }
-
-        /* ===== 상단 헤더 ===== */
-        .header {
-            background: #1a56db;
-            color: white;
-            padding: 14px 20px;
-            text-align: center;
-        }
-        .header h1 { font-size: 20px; font-weight: 700; }
-        .header p { font-size: 12px; opacity: 0.85; margin-top: 4px; }
-
-        /* ===== 검색 + 필터 ===== */
-        .controls {
-            background: white;
-            padding: 12px 16px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .search-box {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-        .search-box input {
-            flex: 1;
-            padding: 10px 14px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 14px;
-            outline: none;
-        }
-        .search-box input:focus { border-color: #1a56db; }
-        .search-box button {
-            padding: 10px 18px;
-            background: #1a56db;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .search-box button:hover { background: #1e40af; }
-
-        .filter-buttons {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        .filter-btn {
-            padding: 7px 14px;
-            border: 2px solid #e0e0e0;
-            border-radius: 20px;
-            background: white;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .filter-btn.active { color: white; border-color: transparent; }
-        .filter-btn[data-type="전체"].active { background: #374151; border-color: #374151; }
-        .filter-btn[data-type="종량제봉투 판매소"].active { background: #2563eb; border-color: #2563eb; }
-        .filter-btn[data-type="공구대여소"].active { background: #16a34a; border-color: #16a34a; }
-        .filter-btn[data-type="무인패트병수거함"].active { background: #d97706; border-color: #d97706; }
-
-        .result-count {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 8px;
-        }
-
-        /* ===== 지도 ===== */
-        #map {
-            width: 100%;
-            height: calc(100vh - 200px);
-            min-height: 400px;
-        }
-
-        /* ===== 커스텀 오버레이 (팝업) ===== */
-        .overlay-wrap {
-            position: relative;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            min-width: 250px;
-            max-width: 300px;
-            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
-            overflow: hidden;
-        }
-        .overlay-wrap .overlay-close {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 24px;
-            height: 24px;
-            background: #f3f4f6;
-            border: none;
-            border-radius: 50%;
-            font-size: 14px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #6b7280;
-            z-index: 10;
-        }
-        .overlay-wrap .overlay-close:hover {
-            background: #e5e7eb;
-            color: #111827;
-        }
-        .overlay-wrap .overlay-body {
-            padding: 16px;
-        }
-        .overlay-wrap .overlay-type {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 600;
-            color: white;
-            margin-bottom: 8px;
-        }
-        .type-봉투 { background: #2563eb; }
-        .type-공구 { background: #16a34a; }
-        .type-패트병 { background: #d97706; }
-
-        .overlay-wrap h3 {
-            font-size: 15px;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #111827;
-            padding-right: 24px;
-        }
-        .overlay-wrap .info-row {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 5px;
-            font-size: 12px;
-            line-height: 1.5;
-        }
-        .overlay-wrap .info-label {
-            color: #6b7280;
-            white-space: nowrap;
-            min-width: 48px;
-        }
-        .overlay-wrap .info-value {
-            color: #111827;
-            word-break: keep-all;
-        }
-        .overlay-wrap .items-box {
-            margin-top: 10px;
-            padding: 10px 12px;
-            background: #f9fafb;
-            border: 1px solid #f3f4f6;
-            border-radius: 6px;
-            font-size: 12px;
-            color: #374151;
-            line-height: 1.5;
-        }
-        .overlay-wrap .items-label {
-            font-weight: 600;
-            margin-bottom: 3px;
-            color: #111827;
-        }
-
-        /* 팝업 아래 화살표 */
-        .overlay-arrow {
-            display: flex;
-            justify-content: center;
-            margin-top: -1px;
-        }
-        .overlay-arrow span {
-            width: 0;
-            height: 0;
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-top: 10px solid white;
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));
-        }
-
-        /* ===== 모바일 ===== */
-        @media (max-width: 768px) {
-            .header h1 { font-size: 16px; }
-            #map { height: calc(100vh - 220px); }
-            .filter-btn { padding: 6px 10px; font-size: 12px; }
-            .overlay-wrap { min-width: 220px; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>우리동네 생활편의시설 지도</title>
+  <script type="text/javascript"
+    src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=41cb6164e3418fb3064c2418a4167d4a&libraries=services,clusterer&autoload=false">
+  </script>
+  <style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+}
+#header {
+  background: #1a56a0; color: white;
+  padding: 11px 16px; display: flex;
+  align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+#header h1 { font-size: 17px; font-weight: bold; }
+#hd-count {
+  font-size: 12px; background: rgba(255,255,255,0.18);
+  padding: 3px 9px; border-radius: 4px;
+}
+#ctrl {
+  background: white; padding: 10px 14px;
+  border-bottom: 1px solid #ddd; flex-shrink: 0;
+}
+.s-row { display: flex; gap: 6px; margin-bottom: 8px; }
+#s-input {
+  flex: 1; padding: 8px 11px;
+  border: 1.5px solid #ccc; border-radius: 6px;
+  font-size: 14px; font-family: inherit;
+}
+#s-input:focus { border-color: #1a56a0; outline: none; }
+.btn {
+  padding: 8px 13px; border-radius: 6px; border: none;
+  cursor: pointer; font-size: 13px; font-family: inherit; white-space: nowrap;
+}
+.btn-p { background: #1a56a0; color: white; }
+.btn-p:hover { background: #1245a0; }
+.btn-s { background: #f0f0f0; color: #555; border: 1px solid #ccc; }
+.f-row {
+  display: flex; flex-wrap: wrap;
+  align-items: center; gap: 6px; margin-bottom: 6px;
+}
+.f-lbl { font-size: 12px; color: #888; white-space: nowrap; min-width: 54px; }
+.cat {
+  padding: 4px 12px; border-radius: 14px;
+  border: 1.5px solid #ccc; background: white;
+  cursor: pointer; font-size: 13px; font-family: inherit; color: #444;
+}
+.cat:hover { background: #f5f5f5; }
+.cat.on[data-t="전체"]       { background:#1a56a0; border-color:#1a56a0; color:white; }
+.cat.on[data-t="종량제봉투"]  { background:#c0392b; border-color:#c0392b; color:white; }
+.cat.on[data-t="의류수거함"]  { background:#27ae60; border-color:#27ae60; color:white; }
+.cat.on[data-t="착한가격업소"]{ background:#e67e22; border-color:#e67e22; color:white; }
+select.fsel {
+  padding: 4px 8px; border: 1.5px solid #ccc; border-radius: 6px;
+  font-size: 13px; font-family: inherit; background: white; color: #444; cursor: pointer;
+}
+#cnt { font-size: 12px; color: #888; margin-top: 4px; }
+#mwrap { position: relative; flex: 1; min-height: 0; }
+#map   { width: 100%; height: 100%; }
+#nomsg {
+  display: none; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  background: rgba(255,255,255,0.95); padding: 16px 26px;
+  border-radius: 10px; font-size: 15px; color: #666;
+  border: 1px solid #ddd; pointer-events: none; z-index: 10;
+}
+/* 진단 박스 스타일 */
+#diag {
+  display: none; position: absolute; top: 10px; left: 50%;
+  transform: translateX(-50%);
+  background: #fff3cd; border: 1.5px solid #e6a817;
+  border-radius: 8px; padding: 14px 20px;
+  z-index: 100; min-width: 280px; max-width: 90vw;
+  font-size: 13px; line-height: 1.7; color: #333;
+}
+#diag strong { color: #c0392b; }
+#diag .d-title { font-weight: bold; font-size: 14px; margin-bottom: 8px; color: #1a56a0; }
+#lgd {
+  position: absolute; bottom: 28px; right: 10px;
+  background: white; border: 1px solid #ccc;
+  border-radius: 8px; padding: 9px 13px; z-index: 5; font-size: 12px;
+}
+.li { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; color: #444; }
+.li:last-child { margin-bottom: 0; }
+.ld { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.iw { min-width: 225px; max-width: 285px; font-family:'Malgun Gothic',sans-serif; font-size:13px; }
+.iw-hd { padding:9px 13px; color:white; font-weight:bold; font-size:14px; }
+.iw-hd.t봉  { background:#c0392b; }
+.iw-hd.t의  { background:#27ae60; }
+.iw-hd.t착  { background:#e67e22; }
+.iw-bd { padding:10px 13px; background:white; border:1px solid #ddd; border-top:none; }
+.ir { display:flex; margin-bottom:5px; line-height:1.4; }
+.ik { color:#aaa; min-width:44px; font-size:12px; }
+.iv { color:#333; flex:1; word-break:keep-all; }
+.tags { display:flex; flex-wrap:wrap; gap:3px; margin-top:4px; }
+.tag  { padding:2px 7px; background:#f2f2f2; border-radius:8px; font-size:11px; color:#555; }
+@media(max-width:600px){
+  #header h1{font-size:14px;}
+  .btn{padding:8px 9px;font-size:12px;}
+  #ctrl{padding:8px 10px;}
+  #lgd{font-size:11px;padding:7px 10px;bottom:18px;}
+  .iw{min-width:190px;}
+}
+  </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>우리 동네 생활시설 지도</h1>
-        <p>종량제봉투 판매소 / 공구대여소 / 무인패트병수거함</p>
-    </div>
+<div id="header">
+  <h1>우리동네 생활편의시설 지도</h1>
+  <span id="hd-count">-</span>
+</div>
 
-    <div class="controls">
-        <div class="search-box">
-            <input type="text" id="searchInput"
-                   placeholder="시설명, 주소, 품목으로 검색하세요"
-                   onkeypress="if(event.key==='Enter') search()">
-            <button onclick="search()">검색</button>
-        </div>
-        <div class="filter-buttons">
-            <button class="filter-btn active" data-type="전체" onclick="filterCategory(this)">전체</button>
-            <button class="filter-btn active" data-type="종량제봉투 판매소" onclick="filterCategory(this)">종량제봉투 판매소</button>
-            <button class="filter-btn active" data-type="공구대여소" onclick="filterCategory(this)">공구대여소</button>
-            <button class="filter-btn active" data-type="무인패트병수거함" onclick="filterCategory(this)">무인패트병수거함</button>
-        </div>
-        <div class="result-count" id="resultCount"></div>
-    </div>
+<div id="ctrl">
+  <div class="s-row">
+    <input type="text" id="s-input" placeholder="시설명, 주소, 품목 검색..."
+           onkeydown="if(event.key==='Enter')doSearch()">
+    <button class="btn btn-p" onclick="doSearch()">검색</button>
+    <button class="btn btn-s" onclick="doReset()">초기화</button>
+  </div>
+  <div class="f-row">
+    <span class="f-lbl">카테고리</span>
+    <button class="cat on" data-t="전체"        onclick="setCat(this)">전체</button>
+    <button class="cat"    data-t="종량제봉투"   onclick="setCat(this)">종량제봉투</button>
+    <button class="cat"    data-t="의류수거함"   onclick="setCat(this)">의류수거함</button>
+    <button class="cat"    data-t="착한가격업소" onclick="setCat(this)">착한가격업소</button>
+  </div>
+  <div class="f-row">
+    <span class="f-lbl">행정동</span>
+    <select class="fsel" id="sel-dong" onchange="applyF()"><option value="전체">전체</option></select>
+    <span id="item-wrap" style="display:none; align-items:center; gap:6px;">
+      <span class="f-lbl" id="item-label" style="margin-left:8px;">품목</span>
+      <select class="fsel" id="sel-item" onchange="applyF()"><option value="전체">전체</option></select>
+    </span>
+  </div>
+  <div id="cnt">시설 0개 표시 중</div>
+</div>
 
-    <div id="map"></div>
+<div id="mwrap">
+  <div id="map"></div>
+  <div id="nomsg">검색 결과가 없습니다.</div>
+  <div id="diag">
+    <div class="d-title">지도 로드 진단 중...</div>
+    <div id="diag-body"></div>
+  </div>
+  <div id="lgd">
+    <div class="li"><span class="ld" style="background:#c0392b"></span>종량제봉투</div>
+    <div class="li"><span class="ld" style="background:#27ae60"></span>의류수거함</div>
+    <div class="li"><span class="ld" style="background:#e67e22"></span>착한가격업소</div>
+  </div>
+</div>
 
-    <script>
-    // ===== 전역 변수 =====
-    var map;
-    var allData = [];
-    var markers = [];
-    var currentOverlay = null;
-    var activeTypes = new Set(["종량제봉투 판매소", "공구대여소", "무인패트병수거함"]);
-    var searchKeyword = "";
+<script>
 
-    // ===== 시설 유형별 색상 =====
-    var typeColors = {
-        "종량제봉투 판매소": "#2563eb",
-        "공구대여소": "#16a34a",
-        "무인패트병수거함": "#d97706"
-    };
+/* DATA 는 외부 data.json 에서 불러옵니다 */
+var DATA = [];
+ 
+/* ------- 진단 함수 (문제 파악용) ------- */
+function runDiag() {
+  var diag = document.getElementById('diag');
+  var body = document.getElementById('diag-body');
+  var msgs = [];
 
-    // ===== 마커 이미지 생성 =====
-    function createMarkerImage(type) {
-        var color = typeColors[type] || "#6b7280";
-        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">' +
-            '<path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.3 21.7 0 14 0z" fill="' + color + '"/>' +
-            '<circle cx="14" cy="14" r="7" fill="white"/>' +
-            '</svg>';
-        var src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-        return new kakao.maps.MarkerImage(
-            src,
-            new kakao.maps.Size(28, 40),
-            { offset: new kakao.maps.Point(14, 40) }
-        );
+  // 1. 카카오 SDK 로드 확인
+  if (typeof kakao === 'undefined' || typeof kakao.maps === 'undefined') {
+    msgs.push('<strong>오류①</strong> 카카오 지도 SDK가 로드되지 않았습니다.<br>'
+      + '→ index.html에서 <code>appkey=</code> 뒤에 실제 JavaScript 앱키를 넣었는지 확인하세요.<br>'
+      + '→ 카카오 개발자 콘솔 → 플랫폼 → Web에 <code>http://localhost:8000</code> 등록했는지 확인하세요.');
+  } else {
+    msgs.push('✅ 카카오 SDK 로드 성공');
+  }
+
+   msgs.push('✅ data.json 로드 완료 (' + DATA.length + '건)');
+    var noCoord = DATA.filter(function(f){ return !f.lat || !f.lng; }).length;
+    if (noCoord > 0) {
+      msgs.push('<strong>주의</strong> 좌표(위도/경도) 없는 항목 ' + noCoord + '개 → 지도에 미표시');
+    }
+  
+
+  // 3. 앱키 placeholder 체크
+  var scripts = document.querySelectorAll('script[src]');
+  // inline script는 src 없으므로 head의 카카오 script src에서 확인
+  var kakaoScript = document.querySelector('script[src*="dapi.kakao.com"]');
+  if (kakaoScript) {
+    var src = kakaoScript.getAttribute('src');
+    if (src.indexOf('여기에_카카오') >= 0 || src.indexOf('앱키_입력') >= 0) {
+      msgs.push('<strong>오류③</strong> 앱키가 교체되지 않았습니다!<br>'
+        + '→ <code>여기에_카카오_JavaScript_앱키_입력</code> 부분을 실제 앱키로 교체하세요.');
+    } else {
+      msgs.push('✅ 앱키 교체 확인됨 (형식 OK)');
+    }
+  }
+
+  body.innerHTML = msgs.join('<br><br>');
+
+  // 오류가 없으면 진단창 숨기기
+  var hasError = msgs.some(function(m){ return m.indexOf('오류') >= 0; });
+  if (!hasError) {
+    setTimeout(function(){ diag.style.display = 'none'; }, 2000);
+  } else {
+    diag.style.display = 'block';
+  }
+}
+
+/* ------- 지도 초기화 ------- */
+var map, MK = [], openIW = null, curCat = '전체';
+var BONG_ITEMS = [], CHAK_ITEMS = [];   // ★ 추가: 품목/업종 목록 보관
+
+function initMap() {
+  runDiag();
+
+  if (typeof kakao === 'undefined' || typeof kakao.maps === 'undefined') {
+    document.getElementById('nomsg').textContent = '지도 로드 실패 — 위 노란 안내창을 확인하세요';
+    document.getElementById('nomsg').style.display = 'block';
+    return;
+  }
+
+  var ic = (function() {
+    if (!DATA.length) return { lat: 37.5665, lng: 126.9780 };
+    var sl = 0, sn = 0;
+    DATA.forEach(function(f){ sl += f.lat; sn += f.lng; });
+    return { lat: sl / DATA.length, lng: sn / DATA.length };
+  })();
+
+  map = new kakao.maps.Map(document.getElementById('map'), {
+    center: new kakao.maps.LatLng(ic.lat, ic.lng),
+    level: 7
+  });
+  map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
+
+  var IC = {
+    '종량제봉투':  { color: '#c0392b', letter: '봉', cls: 't봉' },
+    '의류수거함':  { color: '#27ae60', letter: '의', cls: 't의' },
+    '착한가격업소':{ color: '#e67e22', letter: '착', cls: 't착' }
+  };
+
+  function mkSVG(color, letter) {
+    var s = '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46">'
+      + '<path d="M18 2C10.3 2 4 8.3 4 16c0 11.5 14 28 14 28S32 27.5 32 16C32 8.3 25.7 2 18 2z"'
+      + ' fill="' + color + '" stroke="rgba(0,0,0,0.18)" stroke-width="1"/>'
+      + '<circle cx="18" cy="16" r="9.5" fill="white"/>'
+      + '<text x="18" y="21" text-anchor="middle" font-size="11" font-weight="bold"'
+      + ' fill="' + color + '" font-family="Malgun Gothic,sans-serif">' + letter + '</text>'
+      + '</svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+  }
+
+  function getMI(type) {
+    var c = IC[type] || IC['종량제봉투'];
+    return new kakao.maps.MarkerImage(
+      mkSVG(c.color, c.letter),
+      new kakao.maps.Size(36, 46),
+      { offset: new kakao.maps.Point(18, 46) }
+    );
+  }
+
+  function makeIW(f) {
+    function row(k, v) {
+      if (!v || v === 'nan' || v === '') return '';
+      return '<div class="ir"><span class="ik">' + k + '</span><span class="iv">' + v + '</span></div>';
+    }
+    var tags = (f.items || []).map(function(it){
+      return '<span class="tag">' + it + '</span>';
+    }).join('');
+    var cls = (IC[f.type] || { cls: 't봉' }).cls;
+
+    // 착한가격업소는 '업종', 그 외는 '품목'으로 라벨 결정
+    var itemLabel = (f.type === '착한가격업소') ? '업종' : '품목';
+
+    // items가 있을 때만 박스를 그림 (→ 의류수거함은 items가 비어서 자동 미표시)
+    var itemsBox = '';
+    if ((f.items || []).length > 0) {
+      itemsBox = '<div class="ir" style="flex-direction:column;">'
+        + '<span class="ik" style="margin-bottom:4px;">' + itemLabel + '</span>'
+        + '<div class="tags">' + tags + '</div>'
+        + '</div>';
     }
 
-    // ===== 팝업 닫기 (전역 함수) =====
-    function closeOverlay() {
-        if (currentOverlay) {
-            currentOverlay.setMap(null);
-            currentOverlay = null;
-        }
+    return '<div class="iw">'
+      + '<div class="iw-hd ' + cls + '">' + f.type + '&nbsp;|&nbsp;' + f.name + '</div>'
+      + '<div class="iw-bd">'
+      + row('행정동', f.dong)
+      + row('주소', f.address)
+      + row('전화', f.phone)
+      + row('운영', f.hours)
+      + row('메모', f.memo)
+      + itemsBox
+      + '</div></div>';
+  }
+
+  DATA.forEach(function(f) {
+    if (!f.lat || !f.lng) return;
+    var pos    = new kakao.maps.LatLng(f.lat, f.lng);
+    var marker = new kakao.maps.Marker({ position: pos, image: getMI(f.type), title: f.name, zIndex: 3 });
+    var iw     = new kakao.maps.InfoWindow({ content: makeIW(f), removable: true, zIndex: 9999 });
+   
+ kakao.maps.event.addListener(marker, 'click', function() {
+
+  // 기존 마커 z-index 초기화
+  MK.forEach(function(m){
+    m.marker.setZIndex(3);
+  });
+
+  // 클릭한 마커 맨 위
+  marker.setZIndex(999);
+
+  if (openIW) openIW.close();
+
+  iw.open(map, marker);
+  openIW = iw;
+
+  map.panTo(pos);
+});
+
+    MK.push({ marker: marker, iw: iw, f: f, show: true });
+  });
+
+  /* 필터 드롭다운 채우기 */
+  var dongs = [];
+  BONG_ITEMS = []; CHAK_ITEMS = [];
+  DATA.forEach(function(f) {
+    if (f.dong && dongs.indexOf(f.dong) < 0) dongs.push(f.dong);
+    if (f.type === '종량제봉투') {
+      (f.items || []).forEach(function(it){ if (BONG_ITEMS.indexOf(it) < 0) BONG_ITEMS.push(it); });
+    } else if (f.type === '착한가격업소') {          // ★ 추가: 업종 수집
+      (f.items || []).forEach(function(it){ if (CHAK_ITEMS.indexOf(it) < 0) CHAK_ITEMS.push(it); });
     }
+  });
+  dongs.sort(); BONG_ITEMS.sort(); CHAK_ITEMS.sort();
 
-    // ===== 팝업 HTML 생성 =====
-    function createPopupHTML(item) {
-        var typeClass = "";
-        if (item.type.indexOf("종량제봉투") !== -1) typeClass = "type-봉투";
-        else if (item.type.indexOf("공구") !== -1) typeClass = "type-공구";
-        else if (item.type.indexOf("패트병") !== -1 || item.type.indexOf("수거함") !== -1) typeClass = "type-패트병";
+  var ds = document.getElementById('sel-dong');
+  dongs.forEach(function(d){ var o = document.createElement('option'); o.value = d; o.text = d; ds.appendChild(o); });
 
-        var html = '<div class="overlay-wrap">';
-        html += '  <div class="overlay-body">';
-        html += '    <button class="overlay-close" onclick="closeOverlay()">✕</button>';
-        html += '    <span class="overlay-type ' + typeClass + '">' + item.type + '</span>';
-        html += '    <h3>' + item.name + '</h3>';
-        html += '    <div class="info-row"><span class="info-label">주소</span><span class="info-value">' + item.address + '</span></div>';
-        if (item.dong && item.dong !== "nan" && item.dong !== "") {
-            html += '    <div class="info-row"><span class="info-label">행정동</span><span class="info-value">' + item.dong + '</span></div>';
-        }
-        if (item.items && item.items !== "nan" && item.items !== "") {
-            html += '    <div class="items-box"><div class="items-label">취급 품목</div>' + item.items + '</div>';
-        }
-        html += '  </div>';
-        html += '  <div class="overlay-arrow"><span></span></div>';
-        html += '</div>';
-        return html;
+  document.getElementById('hd-count').textContent = '총 ' + DATA.length + '개 시설';
+  applyF();
+}
+/* ------- 필터 ------- */
+function applyF() {
+  if (!map) return;
+  var q    = document.getElementById('s-input').value.trim().toLowerCase();
+  var dong = document.getElementById('sel-dong').value;
+  var item = document.getElementById('sel-item').value;
+  if (openIW) { openIW.close(); openIW = null; }
+
+  var cnt = 0;
+  var bds = new kakao.maps.LatLngBounds();
+
+  MK.forEach(function(m) {
+    var f  = m.f;
+    var ok = true;
+    if (curCat !== '전체' && f.type !== curCat) ok = false;
+    if (dong  !== '전체' && f.dong !== dong)    ok = false;
+    if (item  !== '전체' && (f.items || []).indexOf(item) < 0) ok = false;
+    if (q) {
+      var t = ((f.name||'') + ' ' + (f.address||'') + ' ' + (f.dong||'') + ' ' + ((f.items||[]).join(' '))).toLowerCase();
+      if (t.indexOf(q) < 0) ok = false;
     }
+    m.show = ok;
+    if (ok) { m.marker.setMap(map); bds.extend(new kakao.maps.LatLng(f.lat, f.lng)); cnt++; }
+    else    { m.marker.setMap(null); }
+  });
 
-    // ===== 마커 표시/갱신 =====
-    function updateMarkers() {
-        // 기존 마커 제거
-        markers.forEach(function(m) { m.setMap(null); });
-        markers = [];
-        closeOverlay();
+  document.getElementById('cnt').textContent = '시설 ' + cnt + '개 표시 중';
+  document.getElementById('nomsg').style.display = (cnt === 0 && MK.length > 0) ? 'block' : 'none';
+  if (cnt > 0) {
+    if (cnt === 1) { map.setCenter(bds.getSouthWest()); map.setLevel(4); }
+    else           { map.setBounds(bds); }
+  }
+}
 
-        var bounds = new kakao.maps.LatLngBounds();
-        var count = 0;
+/* 카테고리에 맞는 드롭다운 내용 채우기 */
+function fillItemSelect(cat) {
+  var sel = document.getElementById('sel-item');
+  sel.innerHTML = '<option value="전체">전체</option>';
+  var list = (cat === '착한가격업소') ? CHAK_ITEMS : BONG_ITEMS;
+  list.forEach(function(it){
+    var o = document.createElement('option');
+    o.value = it; o.text = it;
+    sel.appendChild(o);
+  });
+  sel.value = '전체';
+}
 
-        allData.forEach(function(item) {
-            // 카테고리 필터
-            if (!activeTypes.has(item.type)) return;
+function setCat(btn) {
+  document.querySelectorAll('.cat').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  curCat = btn.getAttribute('data-t');
 
-            // 검색 필터
-            if (searchKeyword) {
-                var kw = searchKeyword.toLowerCase();
-                var searchable = (item.name + " " + item.address + " " + item.dong + " " + item.items + " " + item.type).toLowerCase();
-                if (searchable.indexOf(kw) === -1) return;
-            }
+  var wrap = document.getElementById('item-wrap');
+  var lbl  = document.getElementById('item-label');
 
-            var position = new kakao.maps.LatLng(item.lat, item.lng);
+  // 종량제봉투 → 품목, 착한가격업소 → 업종 드롭다운 표시
+  if (curCat === '종량제봉투' || curCat === '착한가격업소') {
+    lbl.textContent = (curCat === '착한가격업소') ? '업종' : '품목';
+    fillItemSelect(curCat);
+    wrap.style.display = 'inline-flex';
+  } else {
+    wrap.style.display = 'none';
+    document.getElementById('sel-item').value = '전체';
+  }
+  applyF();
+}
 
-            // 마커 생성
-            var marker = new kakao.maps.Marker({
-                position: position,
-                image: createMarkerImage(item.type),
-                map: map
-            });
 
-            // 마커 클릭 이벤트
-            (function(marker, item, position) {
-                kakao.maps.event.addListener(marker, 'click', function() {
-                    closeOverlay();
-                    var overlay = new kakao.maps.CustomOverlay({
-                        content: createPopupHTML(item),
-                        position: position,
-                        yAnchor: 1.15,
-                        xAnchor: 0.5
-                    });
-                    overlay.setMap(map);
-                    currentOverlay = overlay;
-                });
-            })(marker, item, position);
+function doSearch() { applyF(); }
 
-            markers.push(marker);
-            bounds.extend(position);
-            count++;
-        });
-
-        // 결과 개수 표시
-        document.getElementById("resultCount").textContent =
-            "총 " + count + "개 시설이 표시되고 있습니다";
-
-        // 마커가 있으면 지도 범위 조정
-        if (count > 0) {
-            map.setBounds(bounds);
-        }
-    }
-
-    // ===== 검색 =====
-    function search() {
-        searchKeyword = document.getElementById("searchInput").value.trim();
-        updateMarkers();
-    }
-
-    // ===== 카테고리 필터 =====
-    function filterCategory(btn) {
-        var type = btn.getAttribute("data-type");
-
-        if (type === "전체") {
-            var allActive = activeTypes.size === 3;
-            var allBtns = document.querySelectorAll(".filter-btn");
-
-            if (allActive) {
-                activeTypes.clear();
-                allBtns.forEach(function(b) { b.classList.remove("active"); });
-            } else {
-                activeTypes = new Set(["종량제봉투 판매소", "공구대여소", "무인패트병수거함"]);
-                allBtns.forEach(function(b) { b.classList.add("active"); });
-            }
-        } else {
-            if (activeTypes.has(type)) {
-                activeTypes.delete(type);
-                btn.classList.remove("active");
-            } else {
-                activeTypes.add(type);
-                btn.classList.add("active");
-            }
-            var allBtn = document.querySelector('.filter-btn[data-type="전체"]');
-            if (activeTypes.size === 3) {
-                allBtn.classList.add("active");
-            } else {
-                allBtn.classList.remove("active");
-            }
-        }
-        updateMarkers();
-    }
-
-    // ===== 지도 클릭 시 팝업 닫기 =====
-    function initMapClickClose() {
-        kakao.maps.event.addListener(map, 'click', function() {
-            closeOverlay();
-        });
-    }
-
-    // ===== 초기화 =====
-    function init() {
-        var container = document.getElementById("map");
-        var options = {
-            center: new kakao.maps.LatLng(37.5665, 126.978),
-            level: 8
-        };
-        map = new kakao.maps.Map(container, options);
-
-        // 줌 컨트롤 추가
-        var zoomControl = new kakao.maps.ZoomControl();
-        map.addControl(zoomControl, kakao.maps.ControlPosition.RIGHT);
-
-        // 지도 타입 컨트롤 추가 (일반/위성 전환)
-        var mapTypeControl = new kakao.maps.MapTypeControl();
-        map.addControl(mapTypeControl, kakao.maps.ControlPosition.TOPRIGHT);
-
-        // 지도 클릭 시 팝업 닫기
-        initMapClickClose();
-
-        // 데이터 불러오기
-        fetch("data.json")
-            .then(function(response) {
-                if (!response.ok) throw new Error("data.json을 찾을 수 없습니다");
-                return response.json();
-            })
-            .then(function(data) {
-                allData = data;
-                updateMarkers();
-            })
-            .catch(function(error) {
-                console.error("데이터 로드 오류:", error);
-                document.getElementById("resultCount").textContent =
-                    "data.json 파일을 불러올 수 없습니다. 같은 폴더에 있는지 확인하세요.";
-            });
-    }
-
-    window.addEventListener("load", init);
-    </script>
-
+function doReset() {
+  document.getElementById('s-input').value = '';
+  document.getElementById('sel-dong').value = '전체';
+  document.getElementById('sel-item').value = '전체';
+  document.querySelectorAll('.cat').forEach(function(b){ b.classList.remove('on'); });
+  document.querySelector('.cat[data-t="전체"]').classList.add('on');
+  curCat = '전체';
+  document.getElementById('item-wrap').style.display = 'none';
+  if (openIW) { openIW.close(); openIW = null; }
+  MK.forEach(function(m){ m.show = true; m.marker.setMap(map); });
+  document.getElementById('cnt').textContent = '시설 ' + MK.length + '개 표시 중';
+  document.getElementById('nomsg').style.display = 'none';
+  if (map) {
+    var ic = (function() {
+      if (!DATA.length) return { lat: 37.5665, lng: 126.9780 };
+      var sl = 0, sn = 0;
+      DATA.forEach(function(f){ sl += f.lat; sn += f.lng; });
+      return { lat: sl / DATA.length, lng: sn / DATA.length };
+    })();
+    map.setCenter(new kakao.maps.LatLng(ic.lat, ic.lng));
+    map.setLevel(7);
+  }
+}
+/* data.json 을 먼저 불러온 뒤 → 지도 초기화 */
+/* 1) 지도는 데이터와 상관없이 항상 먼저 띄운다 */
+kakao.maps.load(function() {
+  /* 2) 그 다음 data.json 을 불러와서 DATA 에 채운다 */
+fetch('data.json?v=' + Date.now())
+    .then(function(res) {
+      if (!res.ok) throw new Error('data.json 응답 오류: ' + res.status);
+      return res.json();
+    })
+    .then(function(json) {
+      DATA = json;
+      initMap();              // 데이터 채운 뒤 지도 내용 구성
+    })
+    .catch(function(err) {
+      console.error(err);
+      initMap();              // ★ 실패해도 빈 지도라도 띄운다 (진단창 표시됨)
+      alert('data.json 을 불러오지 못했습니다.\n' + err
+          + '\n\n로컬 서버로 열었는지 / 파일명이 정확한지 확인하세요.');
+    });
+    });
+</script>
 </body>
 </html>
